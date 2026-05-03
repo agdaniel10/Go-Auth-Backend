@@ -31,8 +31,6 @@ func (u *User) Normalize() {
 }
 
 func isUniqueConstraintError(err error) bool {
-	// Example for Postgres (adjust depending on your driver)
-	// You could check pq error codes like "23505"
 	return strings.Contains(err.Error(), "duplicate key")
 }
 
