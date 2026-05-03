@@ -87,6 +87,10 @@ func (s *UserService) CreateUser(ctx context.Context, input *User) error {
 		}
 	}
 
+	subject := "Welcome to AG's backend"
+	html := "<p> This is what it takes to be great </p>"
+	err = helper.SendEmail(input.Email, subject, html)
+
 	return nil
 
 }
