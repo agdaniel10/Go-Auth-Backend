@@ -11,9 +11,10 @@ import (
 type UserServiceRepository interface {
 	CreateUser(ctx context.Context, user *User) error
 	GetUsers(ctx context.Context) ([]User, error)
-	GetByEmail(ctx context.Context, email string) ([]User, error)
-	GetByID(ctx context.Context, id string) (*User, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetByID(ctx context.Context, id int) (*User, error)
 	Update(ctx context.Context, user User) (*User, error)
+	Delete(ctx context.Context, id int) error
 }
 
 type UserService struct {
@@ -63,34 +64,28 @@ func (s *UserService) CreateUser(ctx context.Context, input *User) error {
 		return ErrUserRequired
 	}
 
-	// Normalise
 	input.Normalize()
 
-	// Validation checks
-	err := input.Validate()
-	if err != nil {
+	if err := input.Validate(); err != nil {
 		return err
 	}
 
-	// HashPassword
 	hashedPassword, err := helper.HashPassword(input.Password)
 	if err != nil {
-		return fmt.Errorf("Failed to hash password")
+		return fmt.Errorf("failed to hash password: %w", err)
 	}
 	input.Password = hashedPassword
 
-	// Create User
 	if err = s.repo.CreateUser(ctx, input); err != nil {
-		// Handle contraint at DB level
 		if isUniqueConstraintError(err) {
 			return ErrEmailAlreadyExists
 		}
+		return fmt.Errorf("create user: %w", err)
 	}
 
-	subject := "Welcome to AG's backend"
-	html := "<p> This is what it takes to be great </p>"
-	err = helper.SendEmail(input.Email, subject, html)
+	if err = helper.SendEmail(input.Email, "Welcome to AG's backend", "<p>This is what it takes to be great</p>"); err != nil {
+		return fmt.Errorf("failed to send welcome email: %w", err)
+	}
 
 	return nil
-
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, user User) (*User, error)
+	CreateUser(ctx context.Context, user *User) error
 	GetUsers(ctx context.Context) ([]User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id int) (*User, error)
@@ -23,24 +23,17 @@ func NewSQLUserRepository(db *sql.DB) UserRepository {
 	return &SQLUserRepository{db: db}
 }
 
-func (r *SQLUserRepository) CreateUser(ctx context.Context, user User) (*User, error) {
+func (r *SQLUserRepository) CreateUser(ctx context.Context, user *User) error {
 	query := `
         INSERT INTO users (name, email, password)
         VALUES ($1, $2, $3)
-        RETURNING id, name, email, created_at, updated_at
+        RETURNING id, created_at, updated_at
     `
-	result := &User{}
-	err := r.db.QueryRow(query, user.Name, user.Email, user.Password).Scan(
-		&result.ID,
-		&result.Name,
-		&result.Email,
-		&result.CreatedAt,
-		&result.UpdatedAt,
+	return r.db.QueryRowContext(ctx, query, user.Name, user.Email, user.Password).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func (r *SQLUserRepository) GetUsers(ctx context.Context) ([]User, error) {
