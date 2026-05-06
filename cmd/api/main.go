@@ -13,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 
 	"go-auth-backend/internal/tokens"
+
+	"go-auth-backend/internal/middleware"
 )
 
 func main() {
@@ -45,19 +47,35 @@ func main() {
 
 	// Repositories
 	userRepo := users.NewSQLUserRepository(db)
+	tokenRepo := tokens.NewSQLTokenRepository(db)
 
 	// Services
 	userService := users.NewUserService(userRepo)
+	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
-
-	tokenRepo := tokens.NewSQLTokenRepository(db)
-	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
+	authHandler := handlers.NewAuthHandler(userService, tokenService, errorLog, infoLog)
 
 	// Routes
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /auth/register", userHandler.CreateUser)
+	auth := middleware.RequireAuth(tokenService)
+
+	// Public routes — no middleware
+	mux.HandleFunc("POST /auth/register", authHandler.Register)
+	mux.HandleFunc("POST /auth/login", authHandler.Login)
+	mux.HandleFunc("POST /auth/refresh", authHandler.Refresh)
+	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
+
+	// Protected routes — wrapped with auth middleware
+	mux.Handle("GET /users/me", auth(http.HandlerFunc(userHandler.GetMe)))
+
+	// mux.HandleFunc("POST /auth/register", userHandler.CreateUser)
+
+	// mux.HandleFunc("POST /auth/register", authHandler.Register)
+	// mux.HandleFunc("POST /auth/login", authHandler.Login)
+	// mux.HandleFunc("POST /auth/refresh", authHandler.Refresh)
+	// mux.HandleFunc("POST /auth/logout", authHandler.Logout)
 
 	// Server
 	port := os.Getenv("PORT")

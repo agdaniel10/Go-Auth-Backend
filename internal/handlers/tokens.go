@@ -134,7 +134,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userService.GetByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// don't reveal whether email exists or not
 			http.Error(w, "invalid email or password", http.StatusUnauthorized)
 			return
 		}

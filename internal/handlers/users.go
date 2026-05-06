@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"go-auth-backend/internal/middleware"
 	"go-auth-backend/internal/users"
 )
 
@@ -71,4 +72,14 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	_, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// use userID to fetch user from DB
 }
