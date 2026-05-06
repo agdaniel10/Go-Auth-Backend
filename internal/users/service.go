@@ -6,6 +6,8 @@ import (
 	"go-auth-backend/internal/helper"
 	"net/mail"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserServiceRepository interface {
@@ -33,6 +35,10 @@ func (u *User) Normalize() {
 
 func isUniqueConstraintError(err error) bool {
 	return strings.Contains(err.Error(), "duplicate key")
+}
+
+func VerifyPassword(hashedPassword, plainPassword string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
 }
 
 func (u *User) Validate() error {

@@ -11,12 +11,16 @@ import (
 	"go-auth-backend/internal/users"
 
 	"github.com/joho/godotenv"
+
+	"go-auth-backend/internal/tokens"
 )
 
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("no .env file found, reading from environment")
 	}
+
+	secretKey := os.Getenv("JWT_SECRET")
 
 	// Loggers
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ltime)
@@ -26,6 +30,10 @@ func main() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		errorLog.Fatal("DATABASE_URL is not set")
+	}
+
+	if secretKey == "" {
+		errorLog.Fatal("JWT_SECRET is not set")
 	}
 
 	db, err := config.ConnectDB(dsn)
@@ -43,6 +51,9 @@ func main() {
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
+
+	tokenRepo := tokens.NewSQLTokenRepository(db)
+	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
 
 	// Routes
 	mux := http.NewServeMux()
