@@ -96,6 +96,15 @@ func (s *UserService) CreateUser(ctx context.Context, input *User) error {
 	return nil
 }
 
+func (s *UserService) GetByID(ctx context.Context, id int) (*User, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (s *UserService) GetByEmail(ctx context.Context, email string) (*User, error) {
 	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {

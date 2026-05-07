@@ -14,6 +14,7 @@ import (
 
 type UserHandlerService interface {
 	CreateUser(ctx context.Context, user *users.User) error
+	GetByID(ctx context.Context, id int) (*users.User, error)
 }
 
 type UserHandler struct {
@@ -35,6 +36,14 @@ type CreateUserResponse struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type GetUserResponse struct {
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +84,29 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
-	_, ok := r.Context().Value(middleware.UserIDKey).(int)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// use userID to fetch user from DB
+	user, err := h.service.GetByID(r.Context(), userID)
+	if err != nil {
+		errors.Is(err, users.ErrToken)
+		return
+	}
+
+	response := GetUserResponse{
+		ID:        user.ID,
+		Name:      user.Name,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(response)
+
 }
