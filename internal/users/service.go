@@ -112,3 +112,30 @@ func (s *UserService) GetByEmail(ctx context.Context, email string) (*User, erro
 	}
 	return user, nil
 }
+
+func (s *UserService) Update(ctx context.Context, id int, user User) (*User, error) {
+	result, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.Name != "" {
+		result.Name = strings.TrimSpace(user.Name)
+	}
+
+	if user.Email != "" {
+		result.Email = user.Email
+	}
+
+	updatedUser, err := s.repo.Update(ctx, *result)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return nil, ErrEmailAlreadyExists
+		}
+
+		return nil, fmt.Errorf("update user: %w", err)
+	}
+
+	return updatedUser, nil
+
+}

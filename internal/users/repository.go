@@ -128,6 +128,11 @@ func (r *SQLUserRepository) Update(ctx context.Context, user User) (*User, error
 		&result.CreatedAt,
 		&result.UpdatedAt,
 	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user with id %v not found", user.ID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
