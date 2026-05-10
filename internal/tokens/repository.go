@@ -70,7 +70,6 @@ func (r *SQLTokenRepository) DeleteExpired(ctx context.Context) error {
 }
 
 // Helper functions
-
 func GenerateRefreshToken() (raw string, hash string, err error) {
 	bytes := make([]byte, 32)
 	if _, err = rand.Read(bytes); err != nil {
@@ -95,7 +94,7 @@ func NewRefreshToken(userID int) (*Token, string, error) {
 	token := &Token{
 		UserID:    userID,
 		Hash:      hash,
-		ExpiresAt: time.Now().Add(time.Hour * 24 * 7), // 7 days
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 7),
 	}
 
 	return token, raw, nil
