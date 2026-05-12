@@ -17,6 +17,7 @@ type UserServiceRepository interface {
 	GetByID(ctx context.Context, id int) (*User, error)
 	Update(ctx context.Context, user User) (*User, error)
 	Delete(ctx context.Context, id int) error
+	UpdatePassword(ctx context.Context, userID int, hashedContext string) error
 }
 
 type UserService struct {
@@ -137,5 +138,22 @@ func (s *UserService) Update(ctx context.Context, id int, user User) (*User, err
 	}
 
 	return updatedUser, nil
+
+}
+
+func (s *UserService) UpdatePassword(ctx context.Context, userID int, hashedContext string) error {
+
+	user, err := s.repo.GetByID(ctx, userID)
+
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+	err = s.repo.UpdatePassword(ctx, user.ID, hashedContext)
+
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	return nil
 
 }

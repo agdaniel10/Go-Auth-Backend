@@ -139,6 +139,29 @@ func (r *SQLUserRepository) Update(ctx context.Context, user User) (*User, error
 	return result, nil
 }
 
+func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID string, hashedContext string) error {
+	query := `
+        UPDATE users
+        SET password_hash = $1, updated_at = NOW()
+        WHERE id = $2
+    `
+	result, err := r.db.ExecContext(ctx, query, hashedContext, userID)
+	if err != nil {
+		return err
+	}
+
+	// Optional: Check if any row was actually updated
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("user with id %s not found", userID)
+	}
+
+	return nil
+}
+
 func (r *SQLUserRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 	_, err := r.db.Exec(query, id)
