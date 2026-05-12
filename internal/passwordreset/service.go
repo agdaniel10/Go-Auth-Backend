@@ -41,7 +41,6 @@ func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
 
 	token := PasswordResetToken{
 		UserID:    id,
-		Token:     rawToken,
 		TokenHash: hashedToken,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 		CreatedAt: time.Now(),
