@@ -8,13 +8,12 @@ import (
 
 	"go-auth-backend/config"
 	"go-auth-backend/internal/handlers"
+	"go-auth-backend/internal/middleware"
+	"go-auth-backend/internal/passwordreset"
+	"go-auth-backend/internal/tokens"
 	"go-auth-backend/internal/users"
 
 	"github.com/joho/godotenv"
-
-	"go-auth-backend/internal/tokens"
-
-	"go-auth-backend/internal/middleware"
 )
 
 func main() {
@@ -48,14 +47,17 @@ func main() {
 	// Repositories
 	userRepo := users.NewSQLUserRepository(db)
 	tokenRepo := tokens.NewSQLTokenRepository(db)
+	passwordresetRepo := passwordreset.NewPasswordResetRepository(db)
 
 	// Services
 	userService := users.NewUserService(userRepo)
 	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
+	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, *userService)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
 	authHandler := handlers.NewAuthHandler(userService, tokenService, errorLog, infoLog)
+	passwordResetHandler := handlers.NewPasswordHandler(passwordresetService, errorLog, infoLog)
 
 	// Routes
 	mux := http.NewServeMux()
@@ -66,6 +68,8 @@ func main() {
 	mux.HandleFunc("POST /auth/login", authHandler.Login)
 	mux.HandleFunc("POST /auth/refresh", authHandler.Refresh)
 	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
+	mux.HandleFunc("POST /users/forgot-password", passwordResetHandler.ForgotPassword)
+	mux.HandleFunc("POST /users/reset-password", passwordResetHandler.ResetPassword)
 
 	// Protected routes — wrapped with auth middleware
 	mux.Handle("GET /users/me", auth(http.HandlerFunc(userHandler.GetMe)))

@@ -2,12 +2,11 @@ package passwordreset
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"go-auth-backend/internal/helper"
 	"go-auth-backend/internal/users"
+	"math/rand"
 	"time"
 )
 
@@ -19,40 +18,37 @@ type PasswordService struct {
 func NewPasswordService(repo PasswordResetRepository, userService users.UserService) *PasswordService {
 	return &PasswordService{repo: repo, userService: userService}
 }
-
 func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
-
+	// Check if user exists
 	_, err := p.userService.GetByID(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}
 
-	rawBytes := make([]byte, 32)
-	_, err = rand.Read(rawBytes)
-	if err != nil {
-		return "", fmt.Errorf("generate token: %w", err)
-	}
+	// Generate random 6-digit number (100000 to 999999)
+	randomNum := rand.Intn(900000) + 100000
+	tokenStr := fmt.Sprintf("%06d", randomNum)
 
-	rawToken := hex.EncodeToString(rawBytes)
-
-	hashedToken, err := helper.HashPasswordResetToken(rawToken)
+	// Hash the token before saving to database
+	hashedToken, err := helper.HashPasswordResetToken(tokenStr)
 	if err != nil {
 		return "", fmt.Errorf("hash token: %w", err)
 	}
 
-	token := PasswordResetToken{
+	// Save to DB
+	resetToken := PasswordResetToken{
 		UserID:    id,
 		TokenHash: hashedToken,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 
-	err = p.repo.Create(ctx, token)
-	if err != nil {
+	if err = p.repo.Create(ctx, resetToken); err != nil {
 		return "", fmt.Errorf("save token: %w", err)
 	}
 
-	return rawToken, nil
+	// Return the plain 6-digit code to the user
+	return tokenStr, nil
 }
 
 func (s *PasswordService) ForgotPassword(ctx context.Context, email string) error {
@@ -63,6 +59,8 @@ func (s *PasswordService) ForgotPassword(ctx context.Context, email string) erro
 	}
 
 	rawToken, err := s.Create(ctx, user.ID)
+
+	fmt.Println(rawToken)
 	if err != nil {
 		return fmt.Errorf("token failed to be created")
 	}
@@ -104,7 +102,7 @@ func (s *PasswordService) ResetPassword(ctx context.Context, token, newPassword 
 
 	err = s.userService.UpdatePassword(ctx, resultToken.UserID, hashNewPassword)
 	if err != nil {
-		return fmt.Errorf("failed to update the password")
+		return fmt.Errorf("failed to update the password: %w", err)
 	}
 
 	err = s.repo.Delete(ctx, hashedToken)

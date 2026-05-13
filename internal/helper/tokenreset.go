@@ -1,8 +1,11 @@
 package helper
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+)
 
 func HashPasswordResetToken(token string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(token), bcrypt.DefaultCost)
-	return string(bytes), err
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:]), nil
 }

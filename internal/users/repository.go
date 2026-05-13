@@ -143,7 +143,7 @@ func (r *SQLUserRepository) Update(ctx context.Context, user User) (*User, error
 func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID int, hashedContext string) error {
 	query := `
         UPDATE users
-        SET password_hash = $1, updated_at = NOW()
+        SET password = $1, updated_at = NOW()
         WHERE id = $2
     `
 	result, err := r.db.ExecContext(ctx, query, hashedContext, userID)

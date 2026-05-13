@@ -31,7 +31,6 @@ type ForgotPasswordRequest struct {
 }
 
 type ResetPasswordRequest struct {
-	UserID      int    `json:"user_id"`
 	Token       string `json:"token"`
 	NewPassword string `json:"new_password"`
 }
@@ -75,7 +74,7 @@ func (h *PasswordHandler) ResetPassword(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(req.NewPassword) < 8 {
-		http.Error(w, "invalid password", http.StatusBadRequest)
+		http.Error(w, "invalid password, password not long enough", http.StatusBadRequest)
 		return
 	}
 
@@ -87,6 +86,7 @@ func (h *PasswordHandler) ResetPassword(w http.ResponseWriter, r *http.Request) 
 	err := h.service.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		http.Error(w, "error resetting user password", http.StatusInternalServerError)
+		h.errorLog.Println(err)
 		return
 	}
 
