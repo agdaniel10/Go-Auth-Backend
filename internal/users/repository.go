@@ -13,6 +13,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id int) (*User, error)
 	Update(ctx context.Context, user User) (*User, error)
 	Delete(ctx context.Context, id int) error
+	UpdatePassword(ctx context.Context, userID int, hashedContext string) error
 }
 
 type SQLUserRepository struct {
@@ -139,7 +140,7 @@ func (r *SQLUserRepository) Update(ctx context.Context, user User) (*User, error
 	return result, nil
 }
 
-func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID string, hashedContext string) error {
+func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID int, hashedContext string) error {
 	query := `
         UPDATE users
         SET password_hash = $1, updated_at = NOW()
@@ -156,7 +157,7 @@ func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID string, h
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("user with id %s not found", userID)
+		return fmt.Errorf("user with id %w not found", userID)
 	}
 
 	return nil

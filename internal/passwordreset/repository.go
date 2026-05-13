@@ -7,7 +7,7 @@ import (
 )
 
 type PasswordResetRepository interface {
-	Create(ctx context.Context, token PasswordResetToken) (string, error)
+	Create(ctx context.Context, token PasswordResetToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*PasswordResetToken, error)
 	Delete(ctx context.Context, tokenHash string) error
 }
