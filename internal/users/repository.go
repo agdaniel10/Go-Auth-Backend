@@ -157,7 +157,7 @@ func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID int, hash
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("user with id %w not found", userID)
+		return fmt.Errorf("user with id %d not found", userID)
 	}
 
 	return nil
