@@ -5,9 +5,10 @@ import (
 )
 
 type PasswordResetToken struct {
-	ID        int
-	UserID    int
-	TokenHash string
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	ID         int
+	UserID     int
+	TokenHash  string
+	ResetCount int
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
 }

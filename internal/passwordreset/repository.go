@@ -10,6 +10,7 @@ type PasswordResetRepository interface {
 	Create(ctx context.Context, token PasswordResetToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*PasswordResetToken, error)
 	Delete(ctx context.Context, tokenHash string) error
+	IncrementTokenResetCount(ctx context.Context, tokenHash string) (int, error)
 }
 
 type SQLPasswordResetRepository struct {
@@ -53,6 +54,23 @@ func (r *SQLPasswordResetRepository) GetByTokenHash(ctx context.Context, tokenHa
 		return nil, fmt.Errorf("get reset token: %w", err)
 	}
 	return result, nil
+}
+
+func (r *SQLPasswordResetRepository) IncrementTokenResetCount(ctx context.Context, tokenHash string) (int, error) {
+	query := `
+		UPDATE password_reset_tokens
+		SET reset_count = reset_count + 1
+		WHERE token_hash = $1
+		RETURNING reset_count
+	`
+
+	var updatedCount int
+	err := r.db.QueryRowContext(ctx, query, tokenHash).Scan(&updatedCount)
+	if err != nil {
+		return 0, err
+	}
+
+	return updatedCount, nil
 }
 
 func (r *SQLPasswordResetRepository) Delete(ctx context.Context, tokenHash string) error {

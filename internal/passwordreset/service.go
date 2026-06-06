@@ -92,7 +92,7 @@ func (s *PasswordService) ForgotPassword(ctx context.Context, email string) erro
 func (s *PasswordService) ResetPassword(ctx context.Context, token, newPassword string) error {
 	hashedToken, err := helper.HashPasswordResetToken(token)
 	if err != nil {
-		return fmt.Errorf("failed to hask token")
+		return fmt.Errorf("failed to hash token")
 	}
 	resultToken, err := s.repo.GetByTokenHash(ctx, hashedToken)
 	if err != nil {
@@ -101,6 +101,17 @@ func (s *PasswordService) ResetPassword(ctx context.Context, token, newPassword 
 
 	if resultToken.ExpiresAt.Before(time.Now()) {
 		return errors.New("reset token expired")
+	}
+
+	acceptedResetCount := 5
+	resetCount, err := s.repo.IncrementTokenResetCount(ctx, hashedToken)
+	if err != nil {
+		return err
+	}
+
+	if resetCount >= acceptedResetCount {
+		s.repo.Delete(ctx, hashedToken)
+		return fmt.Errorf("too many attempts, please request a new code")
 	}
 
 	if len(newPassword) < 8 {
