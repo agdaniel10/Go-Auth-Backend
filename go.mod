@@ -8,4 +8,5 @@ require (
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/resend/resend-go/v3 v3.6.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 )

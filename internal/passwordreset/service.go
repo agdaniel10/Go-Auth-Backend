@@ -2,11 +2,12 @@ package passwordreset
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"go-auth-backend/internal/helper"
 	"go-auth-backend/internal/users"
-	"math/rand"
+	"math/big"
 	"time"
 )
 
@@ -18,6 +19,15 @@ type PasswordService struct {
 func NewPasswordService(repo PasswordResetRepository, userService users.UserService) *PasswordService {
 	return &PasswordService{repo: repo, userService: userService}
 }
+
+func generateOTP() (int, error) {
+	nBig, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return 0, err
+	}
+
+	return int(nBig.Int64()) + 100000, nil
+}
 func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
 	// Check if user exists
 	_, err := p.userService.GetByID(ctx, id)
@@ -26,7 +36,10 @@ func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
 	}
 
 	// Generate random 6-digit number (100000 to 999999)
-	randomNum := rand.Intn(900000) + 100000
+	randomNum, err := generateOTP()
+	if err != nil {
+		return "", err
+	}
 	tokenStr := fmt.Sprintf("%06d", randomNum)
 
 	// Hash the token before saving to database
@@ -55,12 +68,11 @@ func (s *PasswordService) ForgotPassword(ctx context.Context, email string) erro
 	user, err := s.userService.GetByEmail(ctx, email)
 
 	if err != nil {
-		return fmt.Errorf("user not found: %w", err)
+		return nil
 	}
 
 	rawToken, err := s.Create(ctx, user.ID)
 
-	fmt.Println(rawToken)
 	if err != nil {
 		return fmt.Errorf("token failed to be created")
 	}

@@ -73,13 +73,7 @@ func main() {
 
 	// Protected routes — wrapped with auth middleware
 	mux.Handle("GET /users/me", auth(http.HandlerFunc(userHandler.GetMe)))
-
-	// mux.HandleFunc("POST /auth/register", userHandler.CreateUser)
-
-	// mux.HandleFunc("POST /auth/register", authHandler.Register)
-	// mux.HandleFunc("POST /auth/login", authHandler.Login)
-	// mux.HandleFunc("POST /auth/refresh", authHandler.Refresh)
-	// mux.HandleFunc("POST /auth/logout", authHandler.Logout)
+	mux.Handle("GET /users/logout", auth(http.HandlerFunc(authHandler.Logout)))
 
 	// Server
 	port := os.Getenv("PORT")

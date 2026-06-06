@@ -204,14 +204,10 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 // Logout handler
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	var req LogoutRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid input", http.StatusBadRequest)
-		return
-	}
+	userID := r.Context().Value("UserID").(int)
 
-	if err := h.tokenService.Logout(r.Context(), req.UserID); err != nil {
+	if err := h.tokenService.Logout(r.Context(), userID); err != nil {
 		h.errorLog.Println("logout error:", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

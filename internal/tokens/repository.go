@@ -37,6 +37,7 @@ func (r *SQLTokenRepository) Insert(ctx context.Context, token Token) error {
 	)
 }
 
+
 func (r *SQLTokenRepository) GetByHash(ctx context.Context, hash string) (*Token, error) {
 	query := `
 		SELECT id, user_id, token_hash, expires_at, created_at

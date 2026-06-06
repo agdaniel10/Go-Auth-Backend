@@ -56,7 +56,6 @@ func (r *SQLUserRepository) GetUsers(ctx context.Context) ([]User, error) {
 			&user.Name,
 			&user.Email,
 			&user.CreatedAt,
-			&user.UpdatedAt,
 		)
 
 		if err != nil {

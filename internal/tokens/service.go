@@ -23,6 +23,10 @@ type TokenServiceRepository interface {
 	DeleteExpired(ctx context.Context) error
 }
 
+type UserId struct {
+	UserId Token
+}
+
 type TokenService struct {
 	repo      TokenServiceRepository
 	secretKey string
