@@ -8,6 +8,7 @@ import (
 
 	"go-auth-backend/config"
 	"go-auth-backend/internal/handlers"
+	"go-auth-backend/internal/limiter"
 	"go-auth-backend/internal/middleware"
 	"go-auth-backend/internal/passwordreset"
 	"go-auth-backend/internal/tokens"
@@ -64,12 +65,28 @@ func main() {
 	auth := middleware.RequireAuth(tokenService)
 
 	// Public routes — no middleware
-	mux.HandleFunc("POST /auth/register", authHandler.Register)
-	mux.HandleFunc("POST /auth/login", authHandler.Login)
-	mux.HandleFunc("POST /auth/refresh", authHandler.Refresh)
-	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
-	mux.HandleFunc("POST /users/forgot-password", passwordResetHandler.ForgotPassword)
-	mux.HandleFunc("POST /users/reset-password", passwordResetHandler.ResetPassword)
+	mux.Handle("POST /auth/register", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(authHandler.Register), 2, 4,
+	))
+	mux.Handle("POST /auth/login", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(authHandler.Login), 2, 4,
+	))
+
+	mux.Handle("POST /auth/refresh", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(authHandler.Refresh), 2, 4,
+	))
+
+	mux.Handle("POST /auth/logout", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(authHandler.Logout), 2, 4,
+	))
+
+	mux.Handle("POST /users/forgot-password", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(passwordResetHandler.ForgotPassword), 2, 4,
+	))
+
+	mux.Handle("POST /users/reset-password", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(passwordResetHandler.ResetPassword), 2, 4,
+	))
 
 	// Protected routes — wrapped with auth middleware
 	mux.Handle("GET /users/me", auth(http.HandlerFunc(userHandler.GetMe)))

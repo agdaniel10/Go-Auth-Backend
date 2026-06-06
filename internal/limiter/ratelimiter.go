@@ -1,41 +1,56 @@
 package limiter
 
 import (
-	"net"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/tomasen/realip"
 	"golang.org/x/time/rate"
 )
 
-type IPLimiter struct {
-	mu      sync.Mutex
-	clients map[string]*rate.Limiter
-}
+func RateLimiterMiddleware(next http.Handler, rps, burst int) http.Handler {
 
-func (i *IPLimiter) getLimiter(ip string) *rate.Limiter {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	limiter, exists := i.clients[ip]
-	if !exists {
-		limiter = rate.NewLimiter(2, 5)
-		i.clients[ip] = limiter
+	type client struct {
+		limiter  *rate.Limiter
+		lastSeen time.Time
 	}
 
-	return limiter
-}
+	var (
+		mu      sync.Mutex
+		clients = make(map[string]*client)
+	)
 
-func rateLimiterMiddleware(next http.Handler, ipStore *IPLimiter) http.Handler {
+	go func() {
+		for {
+			time.Sleep(time.Minute)
+			mu.Lock()
+			for ip, c := range clients {
+				if time.Since(c.lastSeen) > 5*time.Minute {
+					delete(clients, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-		limiter := ipStore.getLimiter(ip)
+		ip := realip.FromRequest(r)
 
-		if !limiter.Allow() {
-			w.Header().Set("Retry-After", "1")
-			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+		mu.Lock()
+		if _, ok := clients[ip]; !ok {
+			clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(rps), burst)}
+		}
+		clients[ip].lastSeen = time.Now()
+		allowed := clients[ip].limiter.Allow()
+		mu.Unlock()
+
+		if !allowed {
+			http.Error(w, "Too many request", http.StatusTooManyRequests)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
+
 }
