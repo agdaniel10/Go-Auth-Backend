@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"go-auth-backend/config"
 	"go-auth-backend/internal/handlers"
@@ -59,6 +61,14 @@ func main() {
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
 	authHandler := handlers.NewAuthHandler(userService, tokenService, errorLog, infoLog)
 	passwordResetHandler := handlers.NewPasswordHandler(passwordresetService, errorLog, infoLog)
+
+	go func() {
+		for {
+			time.Sleep(24 * time.Hour)
+			tokenRepo.DeleteExpired(context.Background())
+			passwordresetRepo.DeleteExpiredPasswordTokens(context.Background())
+		}
+	}()
 
 	// Routes
 	mux := http.NewServeMux()
