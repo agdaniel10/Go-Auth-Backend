@@ -11,6 +11,7 @@ type PasswordResetRepository interface {
 	GetByTokenHash(ctx context.Context, tokenHash string) (*PasswordResetToken, error)
 	Delete(ctx context.Context, tokenHash string) error
 	IncrementTokenResetCount(ctx context.Context, tokenHash string) (int, error)
+	DeleteAllUserTokens(ctx context.Context, userID int) error
 }
 
 type SQLPasswordResetRepository struct {
@@ -71,6 +72,22 @@ func (r *SQLPasswordResetRepository) IncrementTokenResetCount(ctx context.Contex
 	}
 
 	return updatedCount, nil
+}
+
+func (r *SQLPasswordResetRepository) DeleteExpiredPasswordTokens(ctx context.Context) error {
+	query := `
+	DELETE FROM password_reset_tokens WHERE expires_at < Now()
+	`
+	_, err := r.db.ExecContext(ctx, query)
+	return err
+}
+
+func (r *SQLPasswordResetRepository) DeleteAllUserTokens(ctx context.Context, userID int) error {
+	query := `
+		DELETE FROM password_reset_tokens WHERE user_id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query, userID)
+	return err
 }
 
 func (r *SQLPasswordResetRepository) Delete(ctx context.Context, tokenHash string) error {

@@ -62,6 +62,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(userService, tokenService, errorLog, infoLog)
 	passwordResetHandler := handlers.NewPasswordHandler(passwordresetService, errorLog, infoLog)
 
+	// Clean up for old refresh and password reset tokens
 	go func() {
 		for {
 			time.Sleep(24 * time.Hour)
