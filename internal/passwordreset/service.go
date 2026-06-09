@@ -11,13 +11,26 @@ import (
 	"time"
 )
 
-type PasswordService struct {
-	repo        PasswordResetRepository
-	userService users.UserService
+type TokenServiceInterface interface {
+	InvalidateAllTokens(ctx context.Context, userID int) error
 }
 
-func NewPasswordService(repo PasswordResetRepository, userService users.UserService) *PasswordService {
-	return &PasswordService{repo: repo, userService: userService}
+type PasswordService struct {
+	repo         PasswordResetRepository
+	userService  users.UserService
+	tokenService TokenServiceInterface
+}
+
+func NewPasswordService(
+	repo PasswordResetRepository,
+	userService users.UserService,
+	tokenService TokenServiceInterface) *PasswordService {
+
+	return &PasswordService{
+		repo:         repo,
+		userService:  userService,
+		tokenService: tokenService,
+	}
 }
 
 func generateOTP() (int, error) {
@@ -132,6 +145,8 @@ func (s *PasswordService) ResetPassword(ctx context.Context, token, newPassword 
 	if err != nil {
 		return fmt.Errorf("failed to delete token")
 	}
+
+	err = s.repo.DeleteAllUserTokens(ctx, resultToken.UserID)
 
 	return nil
 

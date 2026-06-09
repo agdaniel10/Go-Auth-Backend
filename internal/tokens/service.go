@@ -21,6 +21,7 @@ type TokenServiceRepository interface {
 	GetByHash(ctx context.Context, hash string) (*Token, error)
 	DeleteByUserID(ctx context.Context, userID int) error
 	DeleteExpired(ctx context.Context) error
+	InvalidateAllTokens(ctx context.Context, userID int) error
 }
 
 type UserId struct {
@@ -140,6 +141,14 @@ func (s *TokenService) RefreshTokens(ctx context.Context, rawToken string) (acce
 
 	// issue a brand new token pair
 	return s.GenerateTokenPair(ctx, stored.UserID)
+}
+
+func (s *TokenService) InvalidateAllTokens(ctx context.Context, userID int) error {
+	err := s.repo.InvalidateAllTokens(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to invalidate tokens for user %d: %w", userID, err)
+	}
+	return nil
 }
 
 // Logout deletes all refresh tokens for a user

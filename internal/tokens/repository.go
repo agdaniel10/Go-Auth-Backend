@@ -15,6 +15,7 @@ type TokenRepository interface {
 	GetByHash(ctx context.Context, hash string) (*Token, error)
 	DeleteByUserID(ctx context.Context, userID int) error
 	DeleteExpired(ctx context.Context) error
+	InvalidateAllTokens(ctx context.Context, userID int) error
 }
 
 type SQLTokenRepository struct {
@@ -59,6 +60,15 @@ func (r *SQLTokenRepository) GetByHash(ctx context.Context, hash string) (*Token
 
 func (r *SQLTokenRepository) DeleteByUserID(ctx context.Context, userID int) error {
 	query := `DELETE FROM tokens WHERE user_id = $1`
+	_, err := r.db.ExecContext(ctx, query, userID)
+	return err
+}
+
+func (r *SQLTokenRepository) InvalidateAllTokens(ctx context.Context, userID int) error {
+	query := `
+		DELETE FROM tokens 
+		WHERE user_id = $1
+	`
 	_, err := r.db.ExecContext(ctx, query, userID)
 	return err
 }

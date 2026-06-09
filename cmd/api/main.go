@@ -40,6 +40,10 @@ func main() {
 		errorLog.Fatal("JWT_SECRET is not set")
 	}
 
+	if len(secretKey) < 30 {
+		errorLog.Fatal("JWT_SECRET is too short")
+	}
+
 	db, err := config.ConnectDB(dsn)
 	if err != nil {
 		errorLog.Fatal("failed to connect to database:", err)
@@ -55,7 +59,7 @@ func main() {
 	// Services
 	userService := users.NewUserService(userRepo)
 	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
-	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, *userService)
+	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, userService, tokenService)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
