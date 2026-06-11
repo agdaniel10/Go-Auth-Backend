@@ -59,7 +59,7 @@ func main() {
 	// Services
 	userService := users.NewUserService(userRepo)
 	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
-	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, userService, tokenService)
+	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, *userService, tokenService)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)

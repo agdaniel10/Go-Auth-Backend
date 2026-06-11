@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var (
 	ErrInvalidToken  = errors.New("invalid token")
 	ErrExpiredToken  = errors.New("token has expired")
 	ErrTokenNotFound = errors.New("token not found")
+	ErrTokenReuse    = errors.New("token reuse")
 )
 
 type TokenServiceRepository interface {
@@ -23,6 +25,7 @@ type TokenServiceRepository interface {
 	DeleteExpired(ctx context.Context) error
 	InvalidateAllTokens(ctx context.Context, userID int) error
 	MarkAsUsed(ctx context.Context, hash string) error
+	RevokeTokenFamily(ctx context.Context, family_id uuid.UUID) error
 }
 
 type UserId struct {
@@ -57,27 +60,38 @@ func (s *TokenService) CreateAccessToken(userID int) (string, error) {
 }
 
 // CreateRefreshToken generates a refresh token, stores it in DB, returns raw token to caller
-func (s *TokenService) CreateRefreshToken(ctx context.Context, userID int) (string, error) {
-	token, raw, err := NewRefreshToken(userID)
+func (s *TokenService) CreateRefreshToken(ctx context.Context, userID int, parentToken *Token) (string, error) {
+	familyID := uuid.New()
+	var parentID *int
+
+	if parentToken != nil {
+		familyID = parentToken.FamilyID
+		parentID = &parentToken.ID
+	}
+
+	hashedToken, rawToken, err := NewRefreshToken(userID)
 	if err != nil {
 		return "", err
 	}
 
-	if err = s.repo.Insert(ctx, *token); err != nil {
-		return "", fmt.Errorf("failed to store refresh token: %w", err)
+	hashedToken.FamilyID = familyID
+	hashedToken.ParentID = parentID
+
+	if err = s.repo.Insert(ctx, *hashedToken); err != nil {
+		return "", err
 	}
 
-	return raw, nil
+	return rawToken, nil
 }
 
 // GenerateTokenPair issues both tokens at once — call this on login and register
-func (s *TokenService) GenerateTokenPair(ctx context.Context, userID int) (accessToken string, refreshToken string, err error) {
+func (s *TokenService) GenerateTokenPair(ctx context.Context, userID int, parentToken *Token) (accessToken string, refreshToken string, err error) {
 	accessToken, err = s.CreateAccessToken(userID)
 	if err != nil {
 		return "", "", err
 	}
 
-	refreshToken, err = s.CreateRefreshToken(ctx, userID)
+	refreshToken, err = s.CreateRefreshToken(ctx, userID, parentToken)
 	if err != nil {
 		return "", "", err
 	}
@@ -137,8 +151,10 @@ func (s *TokenService) RefreshTokens(ctx context.Context, rawToken string) (acce
 
 	//Reuse detection
 	if stored.Used {
-		s.repo.InvalidateAllTokens(ctx, stored.UserID)
-		return "", "", ErrExpiredToken
+		// s.repo.InvalidateAllTokens(ctx, stored.UserID)
+		// return "", "", ErrExpiredToken
+		s.repo.RevokeTokenFamily(ctx, stored.FamilyID)
+		return "", "", ErrTokenReuse
 	}
 
 	// Mark current token as used
@@ -148,7 +164,7 @@ func (s *TokenService) RefreshTokens(ctx context.Context, rawToken string) (acce
 	}
 
 	// issue a brand new token pair
-	return s.GenerateTokenPair(ctx, stored.UserID)
+	return s.GenerateTokenPair(ctx, stored.UserID, stored)
 }
 
 func (s *TokenService) InvalidateAllTokens(ctx context.Context, userID int) error {

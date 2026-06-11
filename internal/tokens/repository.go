@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type TokenRepository interface {
@@ -18,6 +20,7 @@ type TokenRepository interface {
 	DeleteExpired(ctx context.Context) error
 	InvalidateAllTokens(ctx context.Context, userID int) error
 	MarkAsUsed(ctx context.Context, hash string) error
+	RevokeTokenFamily(ctx context.Context, family_id uuid.UUID) error
 }
 
 type SQLTokenRepository struct {
@@ -30,11 +33,11 @@ func NewSQLTokenRepository(db *sql.DB) TokenRepository {
 
 func (r *SQLTokenRepository) Insert(ctx context.Context, token Token) error {
 	query := `
-		INSERT INTO tokens (user_id, token_hash, expires_at)
-		VALUES ($1, $2, $3)
+		INSERT INTO tokens (user_id, token_hash, expires_at, family_id, parent_id)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at
 	`
-	return r.db.QueryRowContext(ctx, query, token.UserID, token.Hash, token.ExpiresAt).Scan(
+	return r.db.QueryRowContext(ctx, query, token.UserID, token.Hash, token.ExpiresAt, token.FamilyID, token.ParentID).Scan(
 		&token.ID,
 		&token.CreatedAt,
 	)
@@ -75,6 +78,21 @@ func (r *SQLTokenRepository) InvalidateAllTokens(ctx context.Context, userID int
 	return err
 }
 
+func (r *SQLTokenRepository) RevokeTokenFamily(ctx context.Context, family_id uuid.UUID) error {
+	query := `
+		UPDATE tokens
+		SET used = true
+		WHERE family_id = $1
+	`
+
+	_, err := r.db.ExecContext(ctx, query, family_id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *SQLTokenRepository) DeleteExpired(ctx context.Context) error {
 	query := `DELETE FROM tokens WHERE expires_at < NOW()`
 	_, err := r.db.ExecContext(ctx, query)
@@ -111,6 +129,8 @@ func GenerateRefreshToken() (raw string, hash string, err error) {
 	hash = HashToken(raw)
 	return raw, hash, nil
 }
+
+func (r *SQLTokenRepository) RotateRefreshToken()
 
 func HashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
