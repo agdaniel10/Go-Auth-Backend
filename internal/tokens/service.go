@@ -22,6 +22,7 @@ type TokenServiceRepository interface {
 	DeleteByUserID(ctx context.Context, userID int) error
 	DeleteExpired(ctx context.Context) error
 	InvalidateAllTokens(ctx context.Context, userID int) error
+	MarkAsUsed(ctx context.Context, hash string) error
 }
 
 type UserId struct {
@@ -129,14 +130,21 @@ func (s *TokenService) RefreshTokens(ctx context.Context, rawToken string) (acce
 		return "", "", fmt.Errorf("failed to get refresh token: %w", err)
 	}
 
-	// check if it has expired
+	// check expiry first
 	if time.Now().After(stored.ExpiresAt) {
 		return "", "", ErrExpiredToken
 	}
 
-	// delete old token — rotation means old token is invalid immediately
-	if err = s.repo.DeleteByUserID(ctx, stored.UserID); err != nil {
-		return "", "", fmt.Errorf("failed to delete old token: %w", err)
+	//Reuse detection
+	if stored.Used {
+		s.repo.InvalidateAllTokens(ctx, stored.UserID)
+		return "", "", ErrExpiredToken
+	}
+
+	// Mark current token as used
+	err = s.repo.MarkAsUsed(ctx, stored.Hash)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to mark token as used: %w", err)
 	}
 
 	// issue a brand new token pair

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -16,6 +17,7 @@ type TokenRepository interface {
 	DeleteByUserID(ctx context.Context, userID int) error
 	DeleteExpired(ctx context.Context) error
 	InvalidateAllTokens(ctx context.Context, userID int) error
+	MarkAsUsed(ctx context.Context, hash string) error
 }
 
 type SQLTokenRepository struct {
@@ -77,6 +79,26 @@ func (r *SQLTokenRepository) DeleteExpired(ctx context.Context) error {
 	query := `DELETE FROM tokens WHERE expires_at < NOW()`
 	_, err := r.db.ExecContext(ctx, query)
 	return err
+}
+
+func (r *SQLTokenRepository) MarkAsUsed(ctx context.Context, hash string) error {
+	query := `
+		UPDATE tokens 
+		SET used = true
+		WHERE token_hash = $1
+	`
+
+	res, err := r.db.ExecContext(ctx, query, hash)
+	if err != nil {
+		return err
+	}
+
+	rows, err := res.RowsAffected()
+	if err == nil && rows == 0 {
+		return errors.New("token not found")
+	}
+
+	return nil
 }
 
 // Helper functions
