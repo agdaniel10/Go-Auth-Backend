@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 
+	"fmt"
+	"go-auth-backend/internal/helper"
 	"go-auth-backend/internal/tokens"
 	"go-auth-backend/internal/users"
 )
@@ -16,6 +18,10 @@ import (
 type AuthUserService interface {
 	CreateUser(ctx context.Context, user *users.User) error
 	GetByEmail(ctx context.Context, email string) (*users.User, error)
+}
+
+type AuthEmailService interface {
+	CreateEmailVerificationToken(ctx context.Context, userID int) (string, error)
 }
 
 type AuthTokenService interface {
@@ -27,23 +33,26 @@ type AuthTokenService interface {
 
 // AuthHandler
 type AuthHandler struct {
-	userService  AuthUserService
-	tokenService AuthTokenService
-	errorLog     *log.Logger
-	infoLog      *log.Logger
+	userService              AuthUserService
+	tokenService             AuthTokenService
+	emailverificationService AuthEmailService
+	errorLog                 *log.Logger
+	infoLog                  *log.Logger
 }
 
 func NewAuthHandler(
 	userService AuthUserService,
 	tokenService AuthTokenService,
+	emailverificationService AuthEmailService,
 	errorLog *log.Logger,
 	infoLog *log.Logger,
 ) *AuthHandler {
 	return &AuthHandler{
-		userService:  userService,
-		tokenService: tokenService,
-		errorLog:     errorLog,
-		infoLog:      infoLog,
+		userService:              userService,
+		tokenService:             tokenService,
+		emailverificationService: emailverificationService,
+		errorLog:                 errorLog,
+		infoLog:                  infoLog,
 	}
 }
 
@@ -101,6 +110,22 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			h.errorLog.Println("register error:", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
+		return
+	}
+
+	token, err := h.emailverificationService.CreateEmailVerificationToken(r.Context(), user.ID)
+	if err != nil {
+		h.errorLog.Println("failed to create email verification code:", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	emailBody := fmt.Sprintf("<p>Click here to verify: http://localhost:4040/verify-email?token=%s</p>", token)
+
+	err = helper.SendEmail(user.Email, "Welcome to Ag backend", emailBody)
+	if err != nil {
+		h.errorLog.Println("failed to send verification email:", err)
+		http.Error(w, "Failed to send verification email", http.StatusInternalServerError)
 		return
 	}
 

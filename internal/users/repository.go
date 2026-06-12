@@ -14,6 +14,7 @@ type UserRepository interface {
 	Update(ctx context.Context, user User) (*User, error)
 	Delete(ctx context.Context, id int) error
 	UpdatePassword(ctx context.Context, userID int, hashedContext string) error
+	SetEmailVerified(ctx context.Context, userID int) error
 }
 
 type SQLUserRepository struct {
@@ -157,6 +158,21 @@ func (r *SQLUserRepository) UpdatePassword(ctx context.Context, userID int, hash
 	}
 	if rows == 0 {
 		return fmt.Errorf("user with id %d not found", userID)
+	}
+
+	return nil
+}
+
+func (s *SQLUserRepository) SetEmailVerified(ctx context.Context, userID int) error {
+	query := `
+        UPDATE users
+        SET email_verified = true
+        WHERE id = $1
+    `
+
+	_, err := s.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -2,12 +2,19 @@ package users
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"go-auth-backend/internal/emailverificationtoken"
 	"go-auth-backend/internal/helper"
 	"net/mail"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrExpiredToken           = errors.New("token has expired")
+	ErrEmailVerificationFaied = errors.New("failed to verify email")
 )
 
 type UserServiceRepository interface {
@@ -18,14 +25,16 @@ type UserServiceRepository interface {
 	Update(ctx context.Context, user User) (*User, error)
 	Delete(ctx context.Context, id int) error
 	UpdatePassword(ctx context.Context, userID int, hashedContext string) error
+	SetEmailVerified(ctx context.Context, userID int) error
 }
 
 type UserService struct {
-	repo UserServiceRepository
+	repo         UserServiceRepository
+	emailService emailverificationtoken.EmailVerificationService
 }
 
-func NewUserService(repo UserServiceRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo UserServiceRepository, emailService emailverificationtoken.EmailVerificationService) *UserService {
+	return &UserService{repo: repo, emailService: emailService}
 }
 
 // Implement helper functions
@@ -90,6 +99,11 @@ func (s *UserService) CreateUser(ctx context.Context, input *User) error {
 		return fmt.Errorf("create user: %w", err)
 	}
 
+	token, err := s.emailService.CreateEmailVerificationToken(ctx, input.ID)
+	if err != nil {
+		return ErrEmailVerificationFaied
+	}
+
 	if err = helper.SendEmail(input.Email, "Welcome to AG's backend", "<p>This is what it takes to be great</p>"); err != nil {
 		return fmt.Errorf("failed to send welcome email: %w", err)
 	}
@@ -139,6 +153,15 @@ func (s *UserService) Update(ctx context.Context, id int, user User) (*User, err
 
 	return updatedUser, nil
 
+}
+
+func (s *UserService) SetEmailVerified(ctx context.Context, userID int) error {
+	err := s.repo.SetEmailVerified(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to verify user: %w", err)
+	}
+
+	return nil
 }
 
 func (s *UserService) UpdatePassword(ctx context.Context, userID int, hashedContext string) error {
