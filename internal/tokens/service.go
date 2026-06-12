@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"go-auth-backend/internal/helper"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -173,6 +174,19 @@ func (s *TokenService) InvalidateAllTokens(ctx context.Context, userID int) erro
 		return fmt.Errorf("failed to invalidate tokens for user %d: %w", userID, err)
 	}
 	return nil
+}
+
+func (s *TokenService) LogoutSession(ctx context.Context, rawToken string) error {
+	hash, err := helper.HashPasswordResetToken(rawToken)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.MarkAsUsed(ctx, hash)
+}
+
+func (s *TokenService) LogoutAllSessions(ctx context.Context, userID int) error {
+	return s.repo.InvalidateAllTokens(ctx, userID)
 }
 
 // Logout deletes all refresh tokens for a user

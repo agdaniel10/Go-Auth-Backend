@@ -19,9 +19,10 @@ type AuthUserService interface {
 }
 
 type AuthTokenService interface {
-	GenerateTokenPair(ctx context.Context, userID int) (accessToken string, refreshToken string, err error)
+	GenerateTokenPair(ctx context.Context, userID int, parentToken *tokens.Token) (accessToken string, refreshToken string, err error)
 	RefreshTokens(ctx context.Context, rawToken string) (accessToken string, refreshToken string, err error)
 	Logout(ctx context.Context, userID int) error
+	LogoutAllSessions(ctx context.Context, userID int) error
 }
 
 // AuthHandler
@@ -104,7 +105,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// user.ID is now populated from the RETURNING clause in the repository
-	accessToken, refreshToken, err := h.tokenService.GenerateTokenPair(r.Context(), user.ID)
+	accessToken, refreshToken, err := h.tokenService.GenerateTokenPair(r.Context(), user.ID, nil)
 	if err != nil {
 		h.errorLog.Println("generate token pair error:", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -149,7 +150,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// generate token pair
-	accessToken, refreshToken, err := h.tokenService.GenerateTokenPair(r.Context(), user.ID)
+	accessToken, refreshToken, err := h.tokenService.GenerateTokenPair(r.Context(), user.ID, nil)
 	if err != nil {
 		h.errorLog.Println("generate token pair error:", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -199,6 +200,22 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+	})
+}
+
+// Logout all sessions
+func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("UserID").(int)
+
+	if err := h.tokenService.LogoutAllSessions(r.Context(), userID); err != nil {
+		h.errorLog.Println("logout error: ", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "logged out successfully",
 	})
 }
 

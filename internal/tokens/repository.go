@@ -130,8 +130,6 @@ func GenerateRefreshToken() (raw string, hash string, err error) {
 	return raw, hash, nil
 }
 
-func (r *SQLTokenRepository) RotateRefreshToken()
-
 func HashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
