@@ -99,15 +99,6 @@ func (s *UserService) CreateUser(ctx context.Context, input *User) error {
 		return fmt.Errorf("create user: %w", err)
 	}
 
-	token, err := s.emailService.CreateEmailVerificationToken(ctx, input.ID)
-	if err != nil {
-		return ErrEmailVerificationFaied
-	}
-
-	if err = helper.SendEmail(input.Email, "Welcome to AG's backend", "<p>This is what it takes to be great</p>"); err != nil {
-		return fmt.Errorf("failed to send welcome email: %w", err)
-	}
-
 	return nil
 }
 

@@ -44,6 +44,7 @@ func generateOTP() (int, error) {
 func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
 	// Check if user exists
 	_, err := p.userService.GetByID(ctx, id)
+
 	if err != nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}

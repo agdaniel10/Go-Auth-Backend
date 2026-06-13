@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go-auth-backend/config"
+	"go-auth-backend/internal/emailverificationtoken"
 	"go-auth-backend/internal/handlers"
 	"go-auth-backend/internal/limiter"
 	"go-auth-backend/internal/middleware"
@@ -55,15 +56,17 @@ func main() {
 	userRepo := users.NewSQLUserRepository(db)
 	tokenRepo := tokens.NewSQLTokenRepository(db)
 	passwordresetRepo := passwordreset.NewPasswordResetRepository(db)
+	emailverificationtokenrepo := emailverificationtoken.NewSQLEmailVerificationTokenRepo(db)
 
 	// Services
-	userService := users.NewUserService(userRepo)
+	emailService := emailverificationtoken.NewEmailVerificationService(emailverificationtokenrepo, userRepo)
+	userService := users.NewUserService(userRepo, *emailService)
 	tokenService := tokens.NewTokenService(tokenRepo, secretKey)
 	passwordresetService := passwordreset.NewPasswordService(passwordresetRepo, *userService, tokenService)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService, infoLog, errorLog)
-	authHandler := handlers.NewAuthHandler(userService, tokenService, errorLog, infoLog)
+	authHandler := handlers.NewAuthHandler(userService, tokenService, emailService, errorLog, infoLog)
 	passwordResetHandler := handlers.NewPasswordHandler(passwordresetService, errorLog, infoLog)
 
 	// Clean up for old refresh and password reset tokens
@@ -101,6 +104,10 @@ func main() {
 
 	mux.Handle("POST /users/reset-password", limiter.RateLimiterMiddleware(
 		http.HandlerFunc(passwordResetHandler.ResetPassword), 2, 4,
+	))
+
+	mux.Handle("GET /verify-email", limiter.RateLimiterMiddleware(
+		http.HandlerFunc(authHandler.VerifyEmail), 2, 5,
 	))
 
 	// Protected routes — wrapped with auth middleware

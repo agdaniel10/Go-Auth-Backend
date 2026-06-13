@@ -14,6 +14,12 @@ import (
 	"go-auth-backend/internal/users"
 )
 
+var (
+	ErrExpiredToken           = errors.New("token has expired")
+	ErrEmailVerificationFaied = errors.New("failed to verify email")
+	ErrTokenNotFound          = errors.New("Token not found")
+)
+
 // Service interfaces the auth handler depends on
 type AuthUserService interface {
 	CreateUser(ctx context.Context, user *users.User) error
@@ -22,6 +28,7 @@ type AuthUserService interface {
 
 type AuthEmailService interface {
 	CreateEmailVerificationToken(ctx context.Context, userID int) (string, error)
+	VerifyEmail(ctx context.Context, rawToken string) error
 }
 
 type AuthTokenService interface {
@@ -120,7 +127,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emailBody := fmt.Sprintf("<p>Click here to verify: http://localhost:4040/verify-email?token=%s</p>", token)
+	emailBody := fmt.Sprintf(`<p>Click <a href="http://localhost:4040/verify-email?token=%s">here</a> to verify your email</p>`, token)
 
 	err = helper.SendEmail(user.Email, "Welcome to Ag backend", emailBody)
 	if err != nil {
@@ -129,21 +136,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// user.ID is now populated from the RETURNING clause in the repository
-	accessToken, refreshToken, err := h.tokenService.GenerateTokenPair(r.Context(), user.ID, nil)
-	if err != nil {
-		h.errorLog.Println("generate token pair error:", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
 	h.infoLog.Printf("user registered: %s", user.Email)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "registration successful, please verify your email",
 	})
 }
 
@@ -171,6 +171,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// verify password
 	if err := users.VerifyPassword(user.Password, req.Password); err != nil {
 		http.Error(w, "invalid email or password", http.StatusUnauthorized)
+		return
+	}
+
+	h.infoLog.Printf("user registered: %t", user.EmailVerified)
+	h.infoLog.Printf(user.Email)
+	h.infoLog.Printf(user.Name)
+
+	if !user.EmailVerified {
+		http.Error(w, "please verify email", http.StatusForbidden)
 		return
 	}
 
@@ -225,6 +234,36 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+	})
+}
+
+// Verify Email
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	// get the token from the query parameter
+	rawToken := r.URL.Query().Get("token")
+	if rawToken == "" {
+		http.Error(w, "missing token", http.StatusBadRequest)
+		return
+	}
+
+	// call the service
+	err := h.emailverificationService.VerifyEmail(r.Context(), rawToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrExpiredToken):
+			http.Error(w, "token has expired", http.StatusBadRequest)
+		case errors.Is(err, ErrTokenNotFound):
+			http.Error(w, "invalid token", http.StatusBadRequest)
+		default:
+			http.Error(w, "failed to verify email", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// success
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "email verified successfully",
 	})
 }
 

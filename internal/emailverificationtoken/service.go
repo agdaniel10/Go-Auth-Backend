@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"go-auth-backend/internal/users"
 	"math/big"
 	"time"
 )
@@ -17,14 +16,18 @@ var (
 	ErrEmailVerificationFaied = errors.New("failed to verify email")
 )
 
+type UserService interface {
+	SetEmailVerified(ctx context.Context, userID int) error
+}
+
 type EmailVerificationService struct {
 	repo        EmailVerificationTokenRepo
-	userService users.UserService
+	userService UserService
 }
 
 func NewEmailVerificationService(
 	repo EmailVerificationTokenRepo,
-	userService users.UserService,
+	userService UserService,
 ) *EmailVerificationService {
 	return &EmailVerificationService{
 		repo:        repo,
@@ -48,19 +51,13 @@ func GenerateSecureToken() (string, string, error) {
 }
 
 func (e *EmailVerificationService) CreateEmailVerificationToken(ctx context.Context, userID int) (string, error) {
-	_, err := e.userService.GetByID(ctx, userID)
-
-	if err != nil {
-		return "", fmt.Errorf("user not found: %w", err)
-	}
-
 	raw, hash, err := GenerateSecureToken()
 	if err != nil {
 		return "", err
 	}
 
 	token := &EmailVerificationToken{
-		ID:        userID,
+		UserID:    userID,
 		TokenHash: hash,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 		CreatedAt: time.Now(),
@@ -68,11 +65,10 @@ func (e *EmailVerificationService) CreateEmailVerificationToken(ctx context.Cont
 
 	err = e.repo.Insert(ctx, token)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create verification token: %w", err)
+		return "", fmt.Errorf("failed to create verification token: %w", err)
 	}
 
 	return raw, nil
-
 }
 
 func (e *EmailVerificationService) VerifyEmail(ctx context.Context, rawToken string) error {
