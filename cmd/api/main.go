@@ -112,6 +112,8 @@ func main() {
 
 	// Protected routes — wrapped with auth middleware
 	mux.Handle("GET /users/me", auth(http.HandlerFunc(userHandler.GetMe)))
+	mux.Handle("GET /users/forgot-password", auth(http.HandlerFunc(passwordResetHandler.ForgotPassword)))
+	mux.Handle("GET /users/reset-password", auth(http.HandlerFunc(passwordResetHandler.ResetPasswordAuthenticatedUsers)))
 	mux.Handle("POST /users/logout", auth(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("POST /users/logout-all", auth(http.HandlerFunc(authHandler.LogoutAll)))
 

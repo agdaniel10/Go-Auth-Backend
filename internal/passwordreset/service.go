@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+var (
+	ErrTokenNotFound = errors.New("token not found")
+	ErrUserNotFound  = errors.New("user not found")
+	ErrExpiredToken  = errors.New("token expired")
+)
+
 type TokenServiceInterface interface {
 	InvalidateAllTokens(ctx context.Context, userID int) error
 }
@@ -41,6 +47,7 @@ func generateOTP() (int, error) {
 
 	return int(nBig.Int64()) + 100000, nil
 }
+
 func (p *PasswordService) Create(ctx context.Context, id int) (string, error) {
 	// Check if user exists
 	_, err := p.userService.GetByID(ctx, id)
@@ -148,6 +155,57 @@ func (s *PasswordService) ResetPassword(ctx context.Context, token, newPassword 
 	}
 
 	err = s.repo.DeleteAllUserTokens(ctx, resultToken.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to delete all users tokens")
+	}
+
+	return nil
+
+}
+
+func (s *PasswordService) ResetPasswordAuthenticatedUsers(ctx context.Context, password, token, newPassword string) error {
+	hashed, err := helper.HashPasswordResetToken(token)
+	if err != nil {
+		return fmt.Errorf("failed to hash token")
+	}
+
+	result, err := s.repo.GetByTokenHash(ctx, hashed)
+	if err != nil {
+		return ErrTokenNotFound
+	}
+
+	if result.ExpiresAt.Before(time.Now()) {
+		return ErrExpiredToken
+	}
+
+	user, err := s.userService.GetByID(ctx, result.UserID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	passwordHash, err := helper.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("Failed to hash password")
+	}
+
+	if user.Password != passwordHash {
+		return fmt.Errorf("Invalid user password")
+	}
+
+	err = s.userService.UpdatePassword(ctx, result.UserID, passwordHash)
+	if err != nil {
+		return fmt.Errorf("failed to update password")
+	}
+
+	err = s.repo.Delete(ctx, hashed)
+	if err != nil {
+		return fmt.Errorf("failed to token")
+	}
+
+	err = s.repo.DeleteAllUserTokens(ctx, result.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to delete all user tokens")
+	}
 
 	return nil
 

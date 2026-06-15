@@ -10,6 +10,7 @@ import (
 type PasswordServiceHandler interface {
 	ForgotPassword(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, newPassword string) error
+	ResetPasswordAuthenticatedUsers(ctx context.Context, password, token, newPassword string) error
 }
 
 type PasswordHandler struct {
@@ -32,6 +33,12 @@ type ForgotPasswordRequest struct {
 
 type ResetPasswordRequest struct {
 	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}
+
+type ResetPasswordAuthRequest struct {
+	Token       string `json:"token"`
+	Password    string `json:"Password"`
 	NewPassword string `json:"newPassword"`
 }
 
@@ -84,6 +91,39 @@ func (h *PasswordHandler) ResetPassword(w http.ResponseWriter, r *http.Request) 
 	}
 
 	err := h.service.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		http.Error(w, "error resetting user password", http.StatusInternalServerError)
+		h.errorLog.Println(err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(ResetPasswordResponse{
+		Message: "Password reset successful",
+	})
+
+}
+
+func (h *PasswordHandler) ResetPasswordAuthenticatedUsers(w http.ResponseWriter, r *http.Request) {
+	var req ResetPasswordAuthRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+	}
+
+	if len(req.Password) < 8 || len(req.NewPassword) < 8 {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Token == "" {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.ResetPasswordAuthenticatedUsers(r.Context(), req.Password, req.Token, req.NewPassword)
 	if err != nil {
 		http.Error(w, "error resetting user password", http.StatusInternalServerError)
 		h.errorLog.Println(err)

@@ -136,8 +136,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.infoLog.Printf("user registered: %s", user.Email)
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -173,10 +171,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid email or password", http.StatusUnauthorized)
 		return
 	}
-
-	h.infoLog.Printf("user registered: %t", user.EmailVerified)
-	h.infoLog.Printf(user.Email)
-	h.infoLog.Printf(user.Name)
 
 	if !user.EmailVerified {
 		http.Error(w, "please verify email", http.StatusForbidden)
